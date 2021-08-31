@@ -167,15 +167,7 @@ You can get a list of the available benchmarks by running:
 Then you can run a benchmark like so:
 
 ```bash
-./target/release/substrate benchmark \
-    --chain dev \                  # Configurable Chain Spec
-    --execution=wasm \             # Always test with Wasm
-    --wasm-execution=compiled \    # Always used `wasm-time`
-    --pallet pallet_balances \     # Select the pallet
-    --extrinsic transfer \         # Select the extrinsic
-    --steps 50 \                   # Number of samples across component ranges
-    --repeat 20 \                  # Number of times we repeat a benchmark
-    --output <path> \              # Output benchmark results into a folder or file
+./target/release/substrate benchmark --chain dev  --execution=wasm --wasm-execution=compiled --pallet pallet_contracts --extrinsic '*' --steps 50 --repeat 20 --output ./out.txt        # Output benchmark results into a folder or file
 ```
 
 This will output a file `pallet_name.rs` which implements the `WeightInfo` trait you should include

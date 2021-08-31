@@ -1179,6 +1179,22 @@ impl From<u32> for KeyTypeId {
 	}
 }
 
+impl From<KeyTypeId> for CryptoTypeId {
+	fn from(x: KeyTypeId) -> Self {
+		Self {
+			0: x.0,
+		}
+	}
+}
+
+impl From<CryptoTypeId> for KeyTypeId {
+	fn from(x: CryptoTypeId) -> Self {
+		Self {
+			0: x.0,
+		}
+	}
+}
+
 impl From<KeyTypeId> for u32 {
 	fn from(x: KeyTypeId) -> Self {
 		u32::from_le_bytes(x.0)

@@ -1762,6 +1762,47 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::max_value(), vec![])
 
+	// Only calling the function itself with valid arguments.
+	// It uses a pre-defined signature and message hash.
+	// Because calculating a new value for each step in the benchmark takes a lot of time.
+	seal_ecdsa_recovery {
+		let r in 0 .. API_BENCHMARK_BATCHES;
+		// blake2b_256("Hello world".as_bytes());
+		let message_hash = [162, 28, 244, 179, 96, 76, 244, 178, 188, 83, 230, 248, 143, 106, 77, 117, 239, 95, 244, 171, 65, 95, 62, 153, 174, 166, 182, 28, 130, 73, 196, 208];
+		// Signature of message abode, signed with private key
+        // 0000000000000000000000000000000000000000000000000000000000000001
+		let signature = [161, 234, 203, 74, 147, 96, 51, 212, 5, 174, 231, 9, 142, 48, 137, 201, 162, 118, 192, 67, 239, 16, 71, 216, 125, 86, 167, 139, 70, 7, 86, 241, 33, 87, 154, 251, 81, 29, 160, 4, 176, 239, 88, 211, 244, 232, 232, 52, 211, 234, 100, 115, 230, 47, 80, 44, 152, 166, 62, 50, 8, 13, 86, 175, 28];
+
+		let code = WasmModule::<T>::from(ModuleDefinition {
+			memory: Some(ImportedMemory::max::<T>()),
+			imported_functions: vec![ImportedFunction {
+				module: "seal0",
+				name: "seal_ecdsa_recovery",
+				params: vec![ValueType::I32, ValueType::I32, ValueType::I32],
+				return_type: None,
+			}],
+			data_segments: vec![
+				DataSegment {
+					offset: 0,
+					value: 	signature[..].to_vec(),
+				},
+				DataSegment {
+					offset: 65,
+					value: message_hash[..].to_vec(),
+				},
+			],
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
+				Regular(Instruction::I32Const(0)), // signature_ptr
+				Regular(Instruction::I32Const(65)), // message_hash_ptr
+				Regular(Instruction::I32Const(65 + 32)), // output_len_ptr
+				Regular(Instruction::Call(0)),
+			])),
+			.. Default::default()
+		});
+		let instance = Contract::<T>::new(code, vec![], Endow::Max)?;
+		let origin = RawOrigin::Signed(instance.caller.clone());
+	}: call(origin, instance.addr, 0u32.into(), Weight::max_value(), vec![])
+
 	// We make the assumption that pushing a constant and dropping a value takes roughly
 	// the same amount of time. We follow that `t.load` and `drop` both have the weight
 	// of this benchmark / 2. We need to make this assumption because there is no way
