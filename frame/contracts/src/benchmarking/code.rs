@@ -445,50 +445,46 @@ pub mod body {
 		let body = (0..instructions.len())
 			.cycle()
 			.take(instructions.len() * usize::try_from(repetitions).unwrap())
-			.flat_map(|idx|
-				match &mut instructions[idx] {
-					DynInstr::Regular(instruction) => vec![instruction.clone()],
-					DynInstr::Counter(offset, increment_by) => {
-						let current = *offset;
-						*offset += *increment_by;
-						vec![Instruction::I32Const(current as i32)]
-					},
-					DynInstr::RandomUnaligned(low, high) => {
-						let unaligned = rng.gen_range(*low..*high) | 1;
-						vec![Instruction::I32Const(unaligned as i32)]
-					},
-					DynInstr::RandomI32(low, high) => {
-						vec![Instruction::I32Const(rng.gen_range(*low..*high))]
-					},
-					DynInstr::RandomI32Repeated(num) => {
-						(&mut rng).sample_iter(Standard).take(*num).map(|val|
-							Instruction::I32Const(val)
-						)
-						.collect()
-					},
-					DynInstr::RandomI64Repeated(num) => {
-						(&mut rng).sample_iter(Standard).take(*num).map(|val|
-							Instruction::I64Const(val)
-						)
-						.collect()
-					},
-					DynInstr::RandomGetLocal(low, high) => {
-						vec![Instruction::GetLocal(rng.gen_range(*low..*high))]
-					},
-					DynInstr::RandomSetLocal(low, high) => {
-						vec![Instruction::SetLocal(rng.gen_range(*low..*high))]
-					},
-					DynInstr::RandomTeeLocal(low, high) => {
-						vec![Instruction::TeeLocal(rng.gen_range(*low..*high))]
-					},
-					DynInstr::RandomGetGlobal(low, high) => {
-						vec![Instruction::GetGlobal(rng.gen_range(*low..*high))]
-					},
-					DynInstr::RandomSetGlobal(low, high) => {
-						vec![Instruction::SetGlobal(rng.gen_range(*low..*high))]
-					},
-				}
-			)
+			.flat_map(|idx| match &mut instructions[idx] {
+				DynInstr::Regular(instruction) => vec![instruction.clone()],
+				DynInstr::Counter(offset, increment_by) => {
+					let current = *offset;
+					*offset += *increment_by;
+					vec![Instruction::I32Const(current as i32)]
+				},
+				DynInstr::RandomUnaligned(low, high) => {
+					let unaligned = rng.gen_range(*low, *high) | 1;
+					vec![Instruction::I32Const(unaligned as i32)]
+				},
+				DynInstr::RandomI32(low, high) => {
+					vec![Instruction::I32Const(rng.gen_range(*low, *high))]
+				},
+				DynInstr::RandomI32Repeated(num) => (&mut rng)
+					.sample_iter(Standard)
+					.take(*num)
+					.map(|val| Instruction::I32Const(val))
+					.collect(),
+				DynInstr::RandomI64Repeated(num) => (&mut rng)
+					.sample_iter(Standard)
+					.take(*num)
+					.map(|val| Instruction::I64Const(val))
+					.collect(),
+				DynInstr::RandomGetLocal(low, high) => {
+					vec![Instruction::GetLocal(rng.gen_range(*low, *high))]
+				},
+				DynInstr::RandomSetLocal(low, high) => {
+					vec![Instruction::SetLocal(rng.gen_range(*low, *high))]
+				},
+				DynInstr::RandomTeeLocal(low, high) => {
+					vec![Instruction::TeeLocal(rng.gen_range(*low, *high))]
+				},
+				DynInstr::RandomGetGlobal(low, high) => {
+					vec![Instruction::GetGlobal(rng.gen_range(*low, *high))]
+				},
+				DynInstr::RandomSetGlobal(low, high) => {
+					vec![Instruction::SetGlobal(rng.gen_range(*low, *high))]
+				},
+			})
 			.chain(sp_std::iter::once(Instruction::End))
 			.collect();
 		FuncBody::new(Vec::new(), Instructions::new(body))

@@ -36,6 +36,8 @@ use sp_io::hashing::{
 	sha2_256,
 };
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
+use sp_io::crypto::{secp256k1_ecdsa_recover_compressed};
+
 
 /// Every error that can be returned to a contract when it calls any of the host functions.
 ///
@@ -75,6 +77,9 @@ pub enum ReturnCode {
 	/// recording was disabled.
 	#[cfg(feature = "unstable-interface")]
 	LoggingDisabled = 9,
+	/// Recovery failed for other reasons. Most probably wrong recovery id or signature.
+	#[cfg(feature = "unstable-interface")]
+	RecoveryFailed = 11,
 }
 
 impl ConvertibleToWasm for ReturnCode {
@@ -218,6 +223,9 @@ pub enum RuntimeCosts {
 	HashBlake256(u32),
 	/// Weight of calling `seal_hash_blake2_128` for the given input size.
 	HashBlake128(u32),
+	/// Weight of calling `seal_ecdsa_recover`.
+	#[cfg(feature = "unstable-interface")]
+	EcdsaRecovery,
 	/// Weight charged by a chain extension through `seal_call_chain_extension`.
 	ChainExtension(u64),
 	/// Weight charged for copying data from the sandbox.
@@ -289,6 +297,8 @@ impl RuntimeCosts {
 				.saturating_add(s.hash_blake2_256_per_byte.saturating_mul(len.into())),
 			HashBlake128(len) => s.hash_blake2_128
 				.saturating_add(s.hash_blake2_128_per_byte.saturating_mul(len.into())),
+			#[cfg(feature = "unstable-interface")]
+			EcdsaRecovery => s.ecdsa_recover,
 			ChainExtension(amount) => amount,
 			CopyIn(len) => s.return_per_byte.saturating_mul(len.into()),
 		};
@@ -1612,5 +1622,44 @@ define_env!(Env, <E: Ext>,
 		Ok(ctx.write_sandbox_output(
 			out_ptr, out_len_ptr, &rent_status, false, already_charged
 		)?)
+	},
+
+	// Computes the ECDSA public key on the given hash of message and signature.
+	//
+	// Returns the result directly into the given output buffer.
+	//
+	// # Parameters
+	//
+	// - `signature_ptr`: the pointer into the linear memory where the signature
+	//					  is placed. Should be decodable as a 65 bytes. Traps otherwise.
+	// - `message_hash_ptr`: the pointer into the linear memory where the message
+	// 						 hash is placed. Should be decodable as a 32 bytes. Traps otherwise.
+	// - `output_ptr`: the pointer into the linear memory where the output
+	//                 data is placed. The function will write the result
+	//                 directly into this buffer.
+	// # Errors
+	//
+	// `ReturnCode::RecoveryFailed`
+	[__unstable__] seal_ecdsa_recover(ctx, signature_ptr: u32, message_hash_ptr: u32, output_ptr: u32) -> ReturnCode => {
+		ctx.charge_gas(RuntimeCosts::EcdsaRecovery)?;
+
+		let mut signature: [u8; 65] = [0; 65];
+		ctx.read_sandbox_memory_into_buf(signature_ptr, &mut signature)?;
+		let mut message_hash: [u8; 32] = [0; 32];
+		ctx.read_sandbox_memory_into_buf(message_hash_ptr, &mut message_hash)?;
+
+		let result = secp256k1_ecdsa_recover_compressed(&signature, &message_hash);
+
+		match result {
+			Ok(pub_key) => {
+				// Write the recovered compressed ecdsa public key back into the sandboxed output buffer.
+				ctx.write_sandbox_memory(output_ptr, pub_key.as_ref())?;
+
+				Ok(ReturnCode::Success)
+			},
+			Err(_) => {
+				Ok(ReturnCode::RecoveryFailed)
+			}
+		}
 	},
 );
