@@ -664,6 +664,10 @@ where
 		if value > 0u32.into() {
 			self.charge_gas(RuntimeCosts::CallSurchargeTransfer)?;
 		}
+
+		let gas = if flags.contains(CallFlags::PRESERVE_CONTEXT) { 0u64.into() } else { gas };
+		let value = if flags.contains(CallFlags::PRESERVE_CONTEXT) { 0u32.into() } else { value };
+
 		let ext = &mut self.ext;
 		let call_outcome = ext.call(
 			gas,

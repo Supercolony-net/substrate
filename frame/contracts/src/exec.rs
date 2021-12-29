@@ -662,7 +662,6 @@ where
 		if preserve_context {
 			frame.account_id = parent_frame.account_id.clone();
 			frame.contract_info = CachedContract::Cached(parent_frame.contract_info().clone());
-			// TODO: handle value transfered, gas and gas_limit
 		}
 
 		self.frames.push(frame);
@@ -2154,6 +2153,8 @@ mod tests {
 
 			assert_eq!(*caller, BOB);
 			assert_eq!(*ctx.ext.contract_info(), caller_contract_info);
+			assert_eq!(ctx.ext.value_transferred(), 0u64);
+			assert_eq!(ctx.ext.gas_meter().gas_consumed(), 0u64);
 
 			exec_success()
 		});
