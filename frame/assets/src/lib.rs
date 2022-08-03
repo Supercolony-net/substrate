@@ -1196,16 +1196,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-			let mut d = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
-			let approval =
-				Approvals::<T, I>::take((id, &owner, &delegate)).ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
-
-			d.approvals.saturating_dec();
-			Asset::<T, I>::insert(id, d);
-
-			Self::deposit_event(Event::ApprovalCancelled { asset_id: id, owner, delegate });
-			Ok(())
+			Self::do_cancel_approval(owner, id, delegate)
 		}
 
 		/// Cancel all of some asset approved for delegated transfer by a third-party account.
@@ -1311,6 +1302,39 @@ pub mod pallet {
 			allow_burn: bool,
 		) -> DispatchResult {
 			Self::do_refund(id, ensure_signed(origin)?, allow_burn)
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub fn do_cancel_approval(
+			owner: T::AccountId,
+			id: T::AssetId,
+			delegate: T::AccountId,
+		) -> DispatchResult {
+			let mut d = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
+			let approval =
+				Approvals::<T, I>::take((id, &owner, &delegate)).ok_or(Error::<T, I>::Unknown)?;
+			T::Currency::unreserve(&owner, approval.deposit);
+
+			d.approvals.saturating_dec();
+			Asset::<T, I>::insert(id, d);
+
+			Self::deposit_event(Event::ApprovalCancelled { asset_id: id, owner, delegate });
+			Ok(())
+		}
+		pub fn check_ownership(
+			owner: T::AccountId,
+			id: T::AssetId,
+		) -> DispatchResult {
+			let maybe_details = Asset::<T, I>::try_get(id);
+			if maybe_details.is_err(){
+				return DispatchResult::Err(DispatchError::CannotLookup);
+			}
+			let details = maybe_details.unwrap();
+			if details.owner == owner{
+				return Ok(())
+			}
+			return DispatchResult::Err(DispatchError::CannotLookup);
 		}
 	}
 }
